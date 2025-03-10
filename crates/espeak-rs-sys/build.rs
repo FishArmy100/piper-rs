@@ -1,41 +1,15 @@
 use cmake::Config;
 use glob::glob;
-use std::fs::OpenOptions;
+use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::{env, fs, io::Write};
 
 macro_rules! debug_log {
     ($($arg:tt)*) => {
         if std::env::var("BUILD_DEBUG").is_ok() {
-            log_message(&format!($($arg)*));
+            println!("cargo:warning=[DEBUG] {}", format!($($arg)*));
         }
     };
-}
-
-pub fn log_message(message: &str) {
-    let log_dir = "debug";
-    let log_file = "debug/build.log";
-
-    // Ensure the debug directory exists
-    if let Err(e) = fs::create_dir_all(log_dir) {
-        eprintln!("Failed to create log directory: {}", e);
-        return;
-    }
-
-    // Open (or create) the log file for appending
-    let mut file = match OpenOptions::new().create(true).append(true).open(log_file) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("Failed to open log file: {}", e);
-            return;
-        }
-    };
-
-    // Write log message
-    if let Err(e) = writeln!(file, "{}", message) {
-        eprintln!("Failed to write to log file: {}", e);
-    }
 }
 
 fn get_cargo_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
@@ -112,7 +86,7 @@ fn extract_lib_names(out_dir: &Path, build_shared_libs: bool) -> Vec<String> {
                 };
                 lib_names.push(lib_name.to_string());
             }
-            Err(e) => debug_log!("cargo:warning=error={}", e),
+            Err(e) => println!("cargo:warning=error={}", e),
         }
     }
     lib_names
@@ -137,7 +111,7 @@ fn extract_lib_assets(out_dir: &Path) -> Vec<PathBuf> {
             Ok(path) => {
                 files.push(path);
             }
-            Err(e) => debug_log!("cargo:warning=error={}", e),
+            Err(e) => eprintln!("cargo:warning=error={}", e),
         }
     }
 
@@ -150,7 +124,7 @@ fn macos_link_search_path() -> Option<String> {
         .output()
         .ok()?;
     if !output.status.success() {
-        debug_log!(
+        println!(
             "failed to run 'clang --print-search-dirs', continuing without a link search path"
         );
         return None;
@@ -164,15 +138,14 @@ fn macos_link_search_path() -> Option<String> {
         }
     }
 
-    debug_log!("failed to determine link search path, continuing without it");
+    println!("failed to determine link search path, continuing without it");
     None
 }
 
 fn main() {
-    debug_log!("cargo:rustc-link-lib=speechPlayer");
-    debug_log!("cargo:rustc-link-lib=espeak-ng");
-    debug_log!("cargo:rustc-link-lib=ucd");
-    std::env::set_var("RUSTFLAGS", "-C target-cpu=x86-64");
+    println!("cargo:rustc-link-lib=speechPlayer");
+    println!("cargo:rustc-link-lib=espeak-ng");
+    println!("cargo:rustc-link-lib=ucd");
     let target = env::var("TARGET").unwrap();
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
@@ -227,8 +200,8 @@ fn main() {
     bindings
         .write_to_file(bindings_path)
         .expect("Failed to write bindings");
-    debug_log!("cargo:rerun-if-changed=wrapper.h");
-    debug_log!("cargo:rerun-if-changed=./espeak-ng");
+    println!("cargo:rerun-if-changed=wrapper.h");
+    println!("cargo:rerun-if-changed=./espeak-ng");
 
     debug_log!("Bindings Created");
 
@@ -264,34 +237,34 @@ fn main() {
         .very_verbose(std::env::var("CMAKE_VERBOSE").is_ok()) // Not verbose by default
         .always_configure(false);
 
-    // if cfg!(target_env = "msvc") {
-    //     config.define("CMAKE_CXX_FLAGS", "/arch:SSE2");
-    //     config.define("CMAKE_C_FLAGS", "/arch:SSE2");
-    // } else {
-    //     config.define("CMAKE_CXX_FLAGS", "-march=x86-64 -mtune=generic");
-    //     config.define("CMAKE_C_FLAGS", "-march=x86-64 -mtune=generic");
-    // }
+    if cfg!(target_env = "msvc") {
+        config.define("CMAKE_CXX_FLAGS", "/arch:SSE2");
+        config.define("CMAKE_C_FLAGS", "/arch:SSE2");
+    } else {
+        config.define("CMAKE_CXX_FLAGS", "-march=x86-64 -mtune=generic");
+        config.define("CMAKE_C_FLAGS", "-march=x86-64 -mtune=generic");
+    }
 
     let bindings_dir = config.build();
 
     // Search paths
-    debug_log!("cargo:rustc-link-search={}", out_dir.join("lib").display());
-    debug_log!(
+    println!("cargo:rustc-link-search={}", out_dir.join("lib").display());
+    println!(
         "cargo:rustc-link-search={}",
         out_dir.join("build/src/speechPlayer").display()
     );
-    debug_log!(
+    println!(
         "cargo:rustc-link-search={}",
         out_dir.join("build/src/ucd-tools").display()
     );
-    debug_log!("cargo:rustc-link-search={}", bindings_dir.display());
+    println!("cargo:rustc-link-search={}", bindings_dir.display());
 
     if cfg!(windows) {
-        debug_log!(
+        println!(
             "cargo:rustc-link-search={}",
             out_dir.join("build/src/speechPlayer/Release").display()
         );
-        debug_log!(
+        println!(
             "cargo:rustc-link-search={}",
             out_dir.join("build/src/ucd-tools/Release").display()
         );
@@ -299,8 +272,8 @@ fn main() {
 
     // macOS
     if cfg!(target_os = "macos") {
-        debug_log!("cargo:rustc-link-lib=framework=Foundation");
-        debug_log!("cargo:rustc-link-lib=c++");
+        println!("cargo:rustc-link-lib=framework=Foundation");
+        println!("cargo:rustc-link-lib=c++");
     }
 
     // Link libraries
@@ -312,7 +285,7 @@ fn main() {
             "LINK {}",
             format!("cargo:rustc-link-lib={}={}", espeak_libs_kind, lib)
         );
-        debug_log!(
+        println!(
             "{}",
             format!("cargo:rustc-link-lib={}={}", espeak_libs_kind, lib)
         );
@@ -320,12 +293,12 @@ fn main() {
 
     // Windows debug
     if cfg!(all(debug_assertions, windows)) {
-        debug_log!("cargo:rustc-link-lib=dylib=msvcrtd");
+        println!("cargo:rustc-link-lib=dylib=msvcrtd");
     }
 
     // Linux
     if cfg!(target_os = "linux") {
-        debug_log!("cargo:rustc-link-lib=dylib=stdc++");
+        println!("cargo:rustc-link-lib=dylib=stdc++");
     }
 
     if target.contains("apple") {
@@ -334,8 +307,8 @@ fn main() {
         //
         // More details at https://github.com/alexcrichton/curl-rust/issues/279.
         if let Some(path) = macos_link_search_path() {
-            debug_log!("cargo:rustc-link-lib=clang_rt.osx");
-            debug_log!("cargo:rustc-link-search={}", path);
+            println!("cargo:rustc-link-lib=clang_rt.osx");
+            println!("cargo:rustc-link-search={}", path);
         }
     }
 
