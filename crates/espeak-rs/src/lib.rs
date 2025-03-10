@@ -37,7 +37,7 @@ static STRESS_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"[ˈˌ]").unwrap()
 static ESPEAKNG_INIT: Lazy<ESpeakResult<()>> = Lazy::new(|| {
     let espeak_data_location = match env::var(PIPER_ESPEAKNG_DATA_DIRECTORY) {
         Ok(env_dir) => {
-            println!("directory: {}", PIPER_ESPEAKNG_DATA_DIRECTORY);
+            println!("directory: {}", env_dir);
             PathBuf::from(env_dir)
         } // 1. From PIPER_ESPEAKNG_DATA_DIRECTORY environment variable
         Err(_) => {
@@ -60,11 +60,12 @@ static ESPEAKNG_INIT: Lazy<ESpeakResult<()>> = Lazy::new(|| {
         "full directory: {:?}",
         espeak_data_location.join(ESPEAKNG_DATA_DIR_NAME)
     );
-    let es_data_path_ptr = if espeak_data_location.join(ESPEAKNG_DATA_DIR_NAME).exists() {
+    let es_data_path_ptr = if espeak_data_location.exists() {
         rust_string_to_c(espeak_data_location.display().to_string())
     } else {
         std::ptr::null()
     };
+
     unsafe {
         let es_sample_rate = espeak_rs_sys::espeak_Initialize(
             espeak_rs_sys::espeak_AUDIO_OUTPUT_AUDIO_OUTPUT_RETRIEVAL,
@@ -115,6 +116,7 @@ pub fn _text_to_phonemes(
     }
     let set_voice_res = unsafe { espeak_rs_sys::espeak_SetVoiceByName(rust_string_to_c(language)) };
     if set_voice_res != espeak_rs_sys::espeak_ERROR_EE_OK {
+        println!("Espeak error == {set_voice_res}");
         return Err(ESpeakError(format!(
             "Failed to set eSpeak-ng voice to: `{}` ",
             language
