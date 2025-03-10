@@ -237,14 +237,6 @@ fn main() {
         .very_verbose(std::env::var("CMAKE_VERBOSE").is_ok()) // Not verbose by default
         .always_configure(false);
 
-    if cfg!(target_env = "msvc") {
-        config.define("CMAKE_CXX_FLAGS", "/arch:SSE2");
-        config.define("CMAKE_C_FLAGS", "/arch:SSE2");
-    } else {
-        config.define("CMAKE_CXX_FLAGS", "-march=x86-64 -mtune=generic");
-        config.define("CMAKE_C_FLAGS", "-march=x86-64 -mtune=generic");
-    }
-
     let bindings_dir = config.build();
 
     // Search paths
