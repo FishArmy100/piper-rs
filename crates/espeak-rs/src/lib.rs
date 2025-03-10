@@ -36,10 +36,7 @@ static LANG_SWITCH_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\([^)]*\)").
 static STRESS_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"[ˈˌ]").unwrap());
 static ESPEAKNG_INIT: Lazy<ESpeakResult<()>> = Lazy::new(|| {
     let espeak_data_location = match env::var(PIPER_ESPEAKNG_DATA_DIRECTORY) {
-        Ok(env_dir) => {
-            println!("directory: {}", env_dir);
-            PathBuf::from(env_dir)
-        } // 1. From PIPER_ESPEAKNG_DATA_DIRECTORY environment variable
+        Ok(env_dir) => PathBuf::from(env_dir), // 1. From PIPER_ESPEAKNG_DATA_DIRECTORY environment variable
         Err(_) => {
             // 2. From the current working directory (CWD)
             let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -55,11 +52,6 @@ static ESPEAKNG_INIT: Lazy<ESpeakResult<()>> = Lazy::new(|| {
             }
         }
     };
-
-    println!(
-        "full directory: {:?}",
-        espeak_data_location.join(ESPEAKNG_DATA_DIR_NAME)
-    );
     let es_data_path_ptr = if espeak_data_location.exists() {
         rust_string_to_c(espeak_data_location.display().to_string())
     } else {
